@@ -114,7 +114,7 @@ def main():
         # Baseline KNN: giữ vai trò mốc so sánh.
         knn = Pipeline([
             ("scale", StandardScaler()),
-            ("pca", PCA(n_components=min(200, Xtr.shape[0] - 1), random_state=RANDOM_STATE)),
+            ("pca", PCA(n_components=min(200, Xtr.shape[0] - 1, Xtr.shape[1]), random_state=RANDOM_STATE)),
             ("model", KNeighborsClassifier(n_neighbors=3, weights="distance", n_jobs=-1)),
         ])
         knn.fit(Xtr, y_train)
@@ -137,7 +137,7 @@ def main():
             },
             scoring="f1_macro",
             cv=cv,
-            n_jobs=-1,
+            n_jobs=1,
             refit=True,
         )
         grid.fit(Xtr, y_train)
