@@ -1,15 +1,14 @@
-import gradio as gr
-import cv2
-import numpy as np
-import joblib
+"""Giao diện demo phân loại Oxford Flowers 102 bằng Gradio."""
 from pathlib import Path
+import joblib
+import cv2
+import gradio as gr
+import numpy as np
 from skimage.feature import hog
 
-# 1. Định nghĩa đường dẫn
-BASE_DIR = Path(__file__).parent.parent
-MODEL_DIR = BASE_DIR / "models"
+ROOT = Path(__file__).resolve().parents[1]
+MODEL_DIR = ROOT / "models"
 
-# 2. DANH SÁCH 102 LOÀI HOA
 CLASS_NAMES = [
     "pink primrose", "hard-leaved pocket orchid", "canterbury bells", "sweet pea", "english marigold",
     "tiger lily", "moon orchid", "bird of paradise", "monkshood", "globe thistle",
@@ -34,69 +33,94 @@ CLASS_NAMES = [
     "trumpet creeper", "blackberry lily"
 ]
 
-# 3. Load mô hình
-print("Đang tải mô hình...")
-scaler = joblib.load(MODEL_DIR / "scaler_knn.pkl")
-pca = joblib.load(MODEL_DIR / "pca_knn.pkl")
-knn = joblib.load(MODEL_DIR / "knn_model.pkl")
-print("Tải mô hình thành công!")
+MODEL_PATH = MODEL_DIR / "best_model.joblib"
+if MODEL_PATH.exists():
+    saved = joblib.load(MODEL_PATH)
+    pipeline = saved["pipeline"]
+    feature_set = saved["feature_set"]
+    model_name = saved.get("model_name", "Machine Learning")
+    legacy = False
+else:
+    # Tương thích với bộ ba mô hình cũ nếu người dùng chưa chạy pipeline mới.
+    legacy_paths = [MODEL_DIR / name for name in
+                    ("scaler_knn.pkl", "pca_knn.pkl", "knn_model.pkl")]
+    if not all(path.exists() for path in legacy_paths):
+        raise FileNotFoundError(
+            "Chưa có mô hình. Hãy chạy: python src/extract_features.py "
+            "và python src/train_models.py"
+        )
+    scaler, pca, knn = [joblib.load(path) for path in legacy_paths]
+    pipeline = (scaler, pca, knn)
+    feature_set = "HOG+HSV"
+    model_name = "KNN (mô hình cũ)"
+    legacy = True
 
-# 4. Hàm trích xuất đặc trưng
-def extract_features_from_image(img_rgb):
-    img = cv2.resize(img_rgb, (128, 128))
-    img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-    
-    # HOG
-    img_gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
-    f_hog = hog(img_gray, orientations=9, pixels_per_cell=(8, 8),
-                cells_per_block=(2, 2), block_norm='L2-Hys', visualize=False)
-    
-    # Màu sắc
-    img_hsv = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2HSV)
-    hist_h = cv2.calcHist([img_hsv], [0], None, [16], [0, 180]).flatten()
-    hist_s = cv2.calcHist([img_hsv], [1], None, [16], [0, 256]).flatten()
-    f_color = np.concatenate([hist_h, hist_s])
-    f_color = f_color / (f_color.sum() + 1e-7)
-    
-    return np.concatenate([f_hog, f_color]).reshape(1, -1)
 
-# 5. Hàm dự đoán
+def extract_features(image_rgb):
+    image_rgb = cv2.resize(image_rgb, (128, 128))
+    image_bgr = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2BGR)
+
+    gray = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2GRAY)
+    feature_hog = hog(
+        gray, orientations=9, pixels_per_cell=(8, 8),
+        cells_per_block=(2, 2), block_norm="L2-Hys"
+    )
+
+    hsv = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2HSV)
+    hist_h = cv2.calcHist([hsv], [0], None, [16], [0, 180]).flatten()
+    hist_s = cv2.calcHist([hsv], [1], None, [16], [0, 256]).flatten()
+    feature_color = np.concatenate([hist_h, hist_s])
+    feature_color = feature_color / (feature_color.sum() + 1e-7)
+    return np.concatenate([feature_hog, feature_color]).reshape(1, -1)
+
+
 def predict_flower(image):
     if image is None:
-        return "Vui lòng tải lên hoặc chụp một bức ảnh!"
-    
-    features = extract_features_from_image(image)
-    features_scaled = scaler.transform(features)
-    features_pca = pca.transform(features_scaled)
-    
-    prediction = knn.predict(features_pca)[0]
-    
-    # Tính độ tự tin chuẩn
-    probabilities = knn.predict_proba(features_pca)[0]
-    class_idx = np.where(knn.classes_ == prediction)[0][0]
-    confidence = probabilities[class_idx] * 100
-    
-    flower_name = CLASS_NAMES[prediction - 1]
-    flower_name_formatted = flower_name.title()
-    
-    return f"🌸 Loài hoa: {flower_name_formatted} \n\n(Độ tự tin: {confidence:.2f}%)"
+        return "Vui lòng tải lên một bức ảnh hoa."
 
-# 6. Xây dựng giao diện Gradio (Trở lại như ban đầu + Camera tĩnh)
-title = "🌸 Phân Loại Hoa (Oxford Flowers 102) - K-NN"
-description = "Tải lên một bức ảnh hoặc chụp từ Camera, mô hình K-NN (sử dụng đặc trưng HOG và Màu sắc) sẽ dự đoán tên loài hoa đó."
+    features = extract_features(image)
+    if feature_set == "HOG":
+        features = features[:, :8100]
+    elif feature_set == "HSV":
+        features = features[:, 8100:]
 
-interface = gr.Interface(
-    fn=predict_flower, 
-    # sources=["upload", "webcam"] cho phép vừa tải ảnh lên, vừa bật camera chụp tĩnh
-        inputs=gr.Image(
-        label="Tải ảnh, Chụp từ Camera hoặc Dán (Ctrl+V)", 
-        sources=["upload", "webcam", "clipboard"]
+    if legacy:
+        features = pipeline[0].transform(features)
+        features = pipeline[1].transform(features)
+        model = pipeline[2]
+    else:
+        model = pipeline
+
+    prediction = int(model.predict(features)[0])
+    if not 1 <= prediction <= len(CLASS_NAMES):
+        return f"Mã lớp dự đoán không hợp lệ: {prediction}"
+
+    result = f"🌸 {CLASS_NAMES[prediction - 1].title()}\nMô hình: {model_name}"
+    if hasattr(model, "predict_proba"):
+        probabilities = model.predict_proba(features)[0]
+        top_indices = np.argsort(probabilities)[-3:][::-1]
+        details = [
+            f"{CLASS_NAMES[int(model.classes_[i]) - 1].title()}: {probabilities[i] * 100:.1f}%"
+            for i in top_indices
+        ]
+        result += "\n\nTop dự đoán:\n" + "\n".join(details)
+    return result
+
+
+demo = gr.Interface(
+    fn=predict_flower,
+    inputs=gr.Image(
+        label="Tải ảnh hoa hoặc chụp từ camera",
+        sources=["upload", "webcam", "clipboard"],
+        type="numpy",
     ),
-    outputs=gr.Textbox(label="Kết quả dự đoán", lines=3),
-    title=title,
-    description=description,
-    examples=["../data/raw/jpg/image_00001.jpg", "../data/raw/jpg/image_00500.jpg"]
+    outputs=gr.Textbox(label="Kết quả", lines=6),
+    title="🌸 Nhận diện 102 loài hoa - Oxford Flowers 102",
+    description=(
+        "Tải ảnh hoa lên để dự đoán. Dự án sử dụng đặc trưng HOG/HSV "
+        "và mô hình học máy cổ điển, không sử dụng Deep Learning."
+    ),
 )
 
 if __name__ == "__main__":
-    interface.launch(share=False)
+    demo.launch(share=False)
