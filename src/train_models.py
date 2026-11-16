@@ -266,6 +266,27 @@ def main():
          "bovw_centers": data["bovw_centers"]},
         MODEL_DIR / "best_model.joblib",
     )
+
+    # Lưu riêng mô hình KNN tốt nhất để app dùng làm dự đoán chính.
+    # Naive Bayes và Decision Tree chỉ chạy để so sánh, không lưu riêng.
+    knn_candidates = [c for c in candidates if c[1].endswith(" + KNN")]
+    knn_candidates.sort(key=lambda item: item[0], reverse=True)
+    if knn_candidates:
+        best_knn_f1, best_knn_name, best_knn_feature, best_knn_pipeline = knn_candidates[0]
+        best_knn_pipeline.memory = None
+        X_knn_trainval = np.vstack([
+            make_features(X_train, best_knn_feature),
+            make_features(X_val, best_knn_feature),
+        ])
+        y_knn_trainval = np.concatenate([y_train, y_val])
+        best_knn_pipeline.fit(X_knn_trainval, y_knn_trainval)
+        joblib.dump(
+            {"pipeline": best_knn_pipeline, "feature_set": best_knn_feature,
+             "model_name": best_knn_name, "bovw_centers": data["bovw_centers"]},
+            MODEL_DIR / "knn_model.joblib",
+        )
+        print("KNN model saved:", best_knn_name)
+
     print("\nBest model:", best_name)
     print("Validation macro-F1:", round(best_val_f1, 4))
     print("Test metrics:", json.dumps(test_result, ensure_ascii=False, indent=2))

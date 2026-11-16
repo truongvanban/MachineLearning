@@ -3,3 +3,10 @@ flagged\Tải ảnh hoa lên đây\9eeffb4f87c2baece491\image_00001.jpg,Loài ho
 flagged\Tải ảnh hoặc Chụp từ Camera\6fac336ca483ab1f042b\webcam.png,"🌸 Loài hoa: Bearded Iris 
 
 (Độ tự tin: 22.70%)",,,2026-11-09 16:32:38.467115
+flagged\Tải ảnh hoa hoặc chụp từ camera\770dc3334a8be88d1cb6\image_01150.jpg,"🌸 Red Ginger
+Mô hình: HSV+BoVW + Naive Bayes
+
+Top dự đoán:
+Red Ginger: 48.2%
+Mexican Aster: 22.0%
+Sword Lily: 13.4%",,,2026-11-16 16:05:35.465117

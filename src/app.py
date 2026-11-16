@@ -43,8 +43,17 @@ CLASS_NAMES = [
 ]
 
 MODEL_PATH = MODEL_DIR / "best_model.joblib"
+KNN_MODEL_PATH = MODEL_DIR / "knn_model.joblib"
 bovw_centers = None
-if MODEL_PATH.exists():
+if KNN_MODEL_PATH.exists():
+    # Ưu tiên mô hình KNN lưu riêng để dùng làm dự đoán chính trên web.
+    saved = joblib.load(KNN_MODEL_PATH)
+    pipeline = saved["pipeline"]
+    feature_set = saved["feature_set"]
+    model_name = saved.get("model_name", "KNN")
+    bovw_centers = saved.get("bovw_centers")
+    legacy = False
+elif MODEL_PATH.exists():
     saved = joblib.load(MODEL_PATH)
     pipeline = saved["pipeline"]
     feature_set = saved["feature_set"]
