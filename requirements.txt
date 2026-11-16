@@ -10,3 +10,4 @@ ipykernel>=6.0
 pandas>=1.5
 gradio>=4.0
 joblib>=1.2
+tqdm>=4.65

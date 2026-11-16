@@ -21,7 +21,8 @@ from sklearn.model_selection import GridSearchCV, StratifiedKFold
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.svm import SVC
+from sklearn.naive_bayes import GaussianNB
+from sklearn.tree import DecisionTreeClassifier
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 ROOT = Path(__file__).resolve().parents[1]
@@ -110,42 +111,64 @@ def main():
         Xtr = make_features(X_train, feature_name)
         Xv = make_features(X_val, feature_name)
         Xt = make_features(X_test, feature_name)
+        n_components = min(200, Xtr.shape[0] - 1, Xtr.shape[1])
 
-        # Baseline KNN: giữ vai trò mốc so sánh.
-        knn = Pipeline([
-            ("scale", StandardScaler()),
-            ("pca", PCA(n_components=min(200, Xtr.shape[0] - 1, Xtr.shape[1]), random_state=RANDOM_STATE)),
-            ("model", KNeighborsClassifier(n_neighbors=3, weights="distance", n_jobs=-1)),
-        ])
-        knn.fit(Xtr, y_train)
-        result, _ = score_model(f"{feature_name} + KNN baseline", knn, Xv, y_val)
-        experiments.append(result)
-        candidates.append((result["f1_macro"], f"{feature_name} + KNN", feature_name, knn))
-
-        # SVM tuyến tính và RBF, chọn tham số bằng CV trên train.
-        svm_pipe = Pipeline([
-            ("scale", StandardScaler()),
-            ("pca", PCA(n_components=min(200, Xtr.shape[0] - 1), random_state=RANDOM_STATE)),
-            ("model", SVC(probability=True, class_weight="balanced", random_state=RANDOM_STATE)),
-        ])
-        grid = GridSearchCV(
-            svm_pipe,
-            {
-                "model__kernel": ["linear", "rbf"],
-                "model__C": [0.1, 1, 10],
-                "model__gamma": ["scale"] if feature_name == "HSV" else ["scale", 0.01],
-            },
-            scoring="f1_macro",
-            cv=cv,
-            n_jobs=1,
-            refit=True,
+        model_specs = (
+            (
+                "KNN",
+                Pipeline([
+                    ("scale", StandardScaler()),
+                    ("pca", PCA(n_components=n_components, random_state=RANDOM_STATE)),
+                    ("model", KNeighborsClassifier(n_jobs=-1)),
+                ]),
+                {
+                    "model__n_neighbors": [3, 5, 7],
+                    "model__weights": ["uniform", "distance"],
+                },
+            ),
+            (
+                "Naive Bayes",
+                Pipeline([
+                    ("scale", StandardScaler()),
+                    ("pca", PCA(n_components=n_components, random_state=RANDOM_STATE)),
+                    ("model", GaussianNB()),
+                ]),
+                {"model__var_smoothing": [1e-9, 1e-8, 1e-7]},
+            ),
+            (
+                "Decision Tree",
+                Pipeline([
+                    ("model", DecisionTreeClassifier(random_state=RANDOM_STATE)),
+                ]),
+                {
+                    "model__criterion": ["gini", "entropy"],
+                    "model__max_depth": [None, 30],
+                    "model__min_samples_leaf": [1, 2],
+                },
+            ),
         )
-        grid.fit(Xtr, y_train)
-        result, _ = score_model(f"{feature_name} + SVM", grid.best_estimator_, Xv, y_val)
-        result["best_params"] = json.dumps(grid.best_params_, ensure_ascii=False)
-        experiments.append(result)
-        candidates.append((result["f1_macro"], f"{feature_name} + SVM", feature_name, grid.best_estimator_))
-        print(f"{feature_name}: best SVM={grid.best_params_}; val macro-F1={result['f1_macro']:.4f}")
+
+        for model_label, pipeline, param_grid in model_specs:
+            grid = GridSearchCV(
+                pipeline,
+                param_grid,
+                scoring="f1_macro",
+                cv=cv,
+                n_jobs=1,
+                refit=True,
+            )
+            grid.fit(Xtr, y_train)
+            model_name = f"{feature_name} + {model_label}"
+            result, _ = score_model(model_name, grid.best_estimator_, Xv, y_val)
+            result["best_params"] = json.dumps(grid.best_params_, ensure_ascii=False)
+            experiments.append(result)
+            candidates.append((
+                result["f1_macro"], model_name, feature_name, grid.best_estimator_
+            ))
+            print(
+                f"{model_name}: best params={grid.best_params_}; "
+                f"val macro-F1={result['f1_macro']:.4f}"
+            )
 
     # Chọn duy nhất theo validation, sau đó fit lại train+validation.
     candidates.sort(key=lambda item: item[0], reverse=True)
@@ -189,11 +212,11 @@ def main():
          "feature_dim": int(X_trainval.shape[1]), "model_name": best_name},
         MODEL_DIR / "best_model.joblib",
     )
-    print("\nMô hình tốt nhất:", best_name)
+    print("\nBest model:", best_name)
     print("Validation macro-F1:", round(best_val_f1, 4))
     print("Test metrics:", json.dumps(test_result, ensure_ascii=False, indent=2))
     print("Classification report:", OUT_DIR / "classification_report.csv")
-    print(f"Thời gian: {(time.time() - start) / 60:.1f} phút")
+    print(f"Elapsed time: {(time.time() - start) / 60:.1f} minutes")
 
 
 if __name__ == "__main__":

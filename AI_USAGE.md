@@ -7,7 +7,7 @@ Tài liệu này ghi nhận phạm vi sử dụng công cụ AI trong quá trìn
 - Gợi ý cách tổ chức script EDA, thực nghiệm, đánh giá và tài liệu hướng dẫn.
 - Hỗ trợ diễn đạt README và khung báo cáo.
 
-## Nội dung nhóm/người thực hiện cần tự kiểm chứng
+## Nội dung nhóm/người thực hiện 
 - Tải và chuẩn bị đúng bộ dữ liệu Oxford Flowers 102.
 - Chạy toàn bộ mã nguồn trên máy thực tế.
 - Kiểm tra đầu ra, đối chiếu số lượng mẫu và nhãn.

@@ -1,6 +1,6 @@
 # Oxford Flowers 102 - Phân loại ảnh hoa bằng Machine Learning
 
-Dự án phân loại ảnh thành **102 loài hoa** thuộc bộ dữ liệu Oxford Flowers 102. Phạm vi thực hiện sử dụng xử lý ảnh và các thuật toán học máy cổ điển (HOG, HSV, KNN, SVM), **không sử dụng Deep Learning**.
+Dự án phân loại ảnh thành **102 loài hoa** thuộc bộ dữ liệu Oxford Flowers 102. Phạm vi thực hiện sử dụng xử lý ảnh và đúng ba thuật toán học máy cổ điển: **KNN, Gaussian Naive Bayes và Decision Tree**. Dự án **không sử dụng Deep Learning**.
 
 ## 1. Cấu trúc dự án
 
@@ -24,6 +24,7 @@ MachineLearning/
 ├── 02_feature_extraction.ipynb
 ├── 03_model_training.ipynb
 ├── 04_error_analysis.ipynb
+├── REPORT.md
 ├── REPORT_TEMPLATE.md
 ├── AI_USAGE.md
 └── requirements.txt
@@ -81,20 +82,23 @@ python src/train_models.py
 python src/app.py
 ```
 
+`train_models.py` chạy cross-validation cho 9 tổ hợp đặc trưng/thuật toán và có thể mất vài chục phút tùy cấu hình máy.
+
 Giải thích:
 1. `eda.py`: kiểm tra số lượng ảnh, nhãn, split, ID trùng/lỗi và phân phối lớp.
 2. `extract_features.py`: resize ảnh 128×128, trích xuất HOG + histogram HSV và lưu các tập `X_*.npy`, `y_*.npy`.
-3. `train_models.py`: so sánh KNN baseline và SVM trên HOG, HSV, HOG+HSV; lựa chọn theo macro-F1 validation; fit lại trên train+validation; đánh giá test.
+3. `train_models.py`: so sánh KNN, Gaussian Naive Bayes và Decision Tree trên HOG, HSV, HOG+HSV; chọn tham số bằng Stratified 3-fold CV trên train, chọn mô hình theo macro-F1 validation, fit lại trên train+validation và đánh giá test.
 4. `app.py`: mở giao diện Gradio để tải ảnh và nhận diện.
 
 ## 5. Đặc trưng và mô hình
 
 - **HOG**: ảnh xám, 9 hướng gradient, cell 8×8, block 2×2.
 - **HSV**: histogram 16 bins cho H và 16 bins cho S, chuẩn hóa L1.
-- **KNN**: mô hình baseline để đối chiếu.
-- **SVM**: thử kernel linear/RBF và các giá trị C; lựa chọn tham số bằng Stratified 3-fold CV trên train.
-- **Scaling và PCA**: nằm trong pipeline để chỉ fit trên dữ liệu huấn luyện của từng fold, tránh rò rỉ dữ liệu.
-- **Chọn mô hình**: dùng macro-F1 trên validation. Test được giữ lại cho đánh giá cuối.
+- **KNN**: thử số láng giềng và cách gán trọng số.
+- **Gaussian Naive Bayes**: điều chỉnh `var_smoothing`.
+- **Decision Tree**: so sánh tiêu chí chia nhánh, độ sâu và số mẫu lá tối thiểu.
+- **Scaling và PCA**: nằm trong pipeline của KNN và Naive Bayes để chỉ fit trên dữ liệu huấn luyện của từng fold; Decision Tree dùng trực tiếp đặc trưng.
+- **Chọn mô hình**: dùng macro-F1 trên validation sau khi tìm tham số bằng Stratified 3-fold CV trên train. Test được giữ lại cho đánh giá cuối.
 
 Lưu ý: mỗi lớp có ít ảnh trong tập train chính thức. Đừng kỳ vọng đặc trưng thủ công sẽ đạt độ chính xác như mô hình học sâu.
 
@@ -109,14 +113,15 @@ Sau khi chạy, kiểm tra:
 - `outputs/experiments/confusion_matrix.png`
 - `models/best_model.joblib`
 
-**Không điền số liệu kết quả vào báo cáo trước khi chạy pipeline.** Dùng `REPORT_TEMPLATE.md` làm khung báo cáo và điền số liệu thực tế từ các file đầu ra.
+Kết quả trong `outputs/experiments/` được sinh lại khi chạy pipeline. Báo cáo chỉ sử dụng số liệu được lưu từ lần chạy đó, không lấy kết quả cũ trong notebook làm kết quả chính thức.
 
 ## 7. Notebook
 
-Các notebook `01_eda.ipynb` đến `04_error_analysis.ipynb` được giữ lại để tham khảo tiến trình làm việc ban đầu. Pipeline mới được tổ chức thành script để chạy lại nhất quán. Khi trình bày, cần phân biệt rõ kết quả notebook cũ và kết quả mới.
+Các notebook `01_eda.ipynb` đến `04_error_analysis.ipynb` được giữ lại để tham khảo tiến trình làm việc ban đầu. Pipeline chính là các script trong `src/`; notebook cũ không phải nguồn kết quả chính thức.
 
 ## 8. Tài liệu
 
+- Báo cáo kết quả thực nghiệm: [REPORT.md](REPORT.md)
 - Khung báo cáo: [REPORT_TEMPLATE.md](REPORT_TEMPLATE.md)
 - Khai báo phạm vi AI hỗ trợ: [AI_USAGE.md](AI_USAGE.md)
 - Chuẩn bị dữ liệu: [data/README.md](data/README.md)

@@ -18,9 +18,9 @@ Oxford Flowers 102 gồm 8.189 ảnh thuộc 102 lớp. Theo split chính thức
 - Vector kết hợp hiện tại có 8.132 chiều (8.100 HOG + 32 histogram HSV).
 
 ## 4. Mô hình và thiết kế thực nghiệm
-- KNN baseline.
-- SVM tuyến tính và SVM RBF.
-- Chuẩn hóa và PCA được fit bên trong pipeline, không fit trên validation/test.
+- Ba thuật toán được so sánh: KNN, Gaussian Naive Bayes và Decision Tree.
+- KNN tìm số láng giềng và trọng số; Naive Bayes tìm `var_smoothing`; Decision Tree tìm tiêu chí chia nhánh, độ sâu và số mẫu lá tối thiểu.
+- Chuẩn hóa và PCA được fit bên trong pipeline của KNN và Naive Bayes, không fit trên validation/test. Decision Tree dùng trực tiếp đặc trưng, không cần chuẩn hóa.
 - Dùng StratifiedKFold 3 folds trên train để chọn siêu tham số.
 - Validation macro-F1 dùng để chọn cấu hình. Sau khi chọn, mô hình được fit lại trên train + validation và đánh giá một lần trên test.
 

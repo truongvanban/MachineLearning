@@ -1,0 +1,12 @@
+{
+  "model": "HSV + KNN",
+  "accuracy": 0.20832655716376647,
+  "precision_macro": 0.18758541605318843,
+  "recall_macro": 0.2167378253376115,
+  "f1_macro": 0.18870883698852714,
+  "f1_weighted": 0.20448765665775337,
+  "top5_accuracy": 0.3220035778175313,
+  "selected_by": "validation macro-F1",
+  "validation_macro_f1": 0.1762031748568083,
+  "feature_set": "HSV"
+}
