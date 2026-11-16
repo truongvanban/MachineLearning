@@ -1,12 +1,12 @@
 {
-  "model": "HSV + KNN",
-  "accuracy": 0.20832655716376647,
-  "precision_macro": 0.18758541605318843,
-  "recall_macro": 0.2167378253376115,
-  "f1_macro": 0.18870883698852714,
-  "f1_weighted": 0.20448765665775337,
-  "top5_accuracy": 0.3220035778175313,
+  "model": "HSV+BoVW + Naive Bayes",
+  "accuracy": 0.273377785005692,
+  "precision_macro": 0.2614726462751727,
+  "recall_macro": 0.2841049499409909,
+  "f1_macro": 0.25181262911659374,
+  "f1_weighted": 0.26588844825088176,
+  "top5_accuracy": 0.5202471946657993,
   "selected_by": "validation macro-F1",
-  "validation_macro_f1": 0.1762031748568083,
-  "feature_set": "HSV"
+  "validation_macro_f1": 0.23707881419683793,
+  "feature_set": "HSV+BoVW"
 }

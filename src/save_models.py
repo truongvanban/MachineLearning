@@ -14,6 +14,7 @@ MODEL_DIR.mkdir(parents=True, exist_ok=True)
 print("1. Đang tải dữ liệu từ data/processed/...")
 X_train = np.load(PROCESSED_DIR / "X_train.npy")
 y_train = np.load(PROCESSED_DIR / "y_train.npy")
+X_train = X_train[:, :8132]
 
 print("2. Đang chuẩn hóa và giảm chiều (PCA)...")
 scaler = StandardScaler()

@@ -1,4 +1,4 @@
-# Báo cáo: Phân loại 102 loài hoa bằng học máy cổ điển
+# Báo cáo: Phân loại 102 loài hoa bằng BoVW và học máy cổ điển
 
 ## 1. Mục tiêu và phạm vi
 
@@ -18,23 +18,25 @@ Nhãn và ID split được đọc từ `imagelabels.mat` và `setid.mat`. Scrip
 
 ## 3. Tiền xử lý và đặc trưng
 
-Ảnh được resize về 128 × 128 pixel. Mỗi ảnh được biểu diễn bằng:
+Ảnh được resize về 128 × 128 pixel. Các đặc trưng được trích xuất:
 
 - **HOG** trên ảnh xám: 9 hướng gradient, cell 8 × 8, block 2 × 2; 8.100 chiều.
 - **HSV**: histogram 16 bins cho kênh H và 16 bins cho kênh S, chuẩn hóa L1; 32 chiều.
-- **HOG+HSV**: nối hai vector trên; 8.132 chiều.
+- **LBP**: histogram uniform với 8 điểm lân cận, bán kính 1; histogram trên lưới 2 × 2; 40 chiều.
+- **SIFT BoVW**: tối đa 120 keypoint/ảnh, descriptor được gom thành vocabulary 64 từ bằng MiniBatchKMeans. Vocabulary chỉ fit từ descriptor tập train; mỗi ảnh được biểu diễn bằng histogram 64 chiều chuẩn hóa L1.
+- So sánh HOG, HSV, HOG+HSV, HOG+HSV+LBP, BoVW, HSV+BoVW và HOG+HSV+LBP+BoVW; vector đầy đủ có 8.236 chiều.
 
 ## 4. Mô hình và thiết kế thực nghiệm
 
-Ba thuật toán được so sánh trên cả ba bộ đặc trưng:
+Ba thuật toán cổ điển được so sánh trên bảy bộ đặc trưng:
 
 - **KNN**: `n_neighbors` = 3, 5, 7; `weights` = uniform hoặc distance.
-- **Gaussian Naive Bayes**: `var_smoothing` = 1e-9, 1e-8, 1e-7.
-- **Decision Tree**: criterion = gini hoặc entropy; `max_depth` = None hoặc 30; `min_samples_leaf` = 1 hoặc 2.
+- **Gaussian Naive Bayes**: dùng `var_smoothing=1e-9`, giá trị thắng CV ở tất cả các bộ đặc trưng trong lượt thử tham số ban đầu.
+- **Decision Tree**: criterion = gini hoặc entropy; `max_depth` = None hoặc 30; `min_samples_leaf` = 1 hoặc 2; `max_features` = sqrt để hạn chế số đặc trưng xét tại mỗi nút.
 
-KNN và Naive Bayes dùng `StandardScaler` và PCA trong pipeline; Decision Tree dùng trực tiếp đặc trưng. Số chiều PCA được tính riêng cho từng tập đặc trưng: `min(200, số_mẫu_train - 1, số_đặc_trưng)`. Do đó HOG dùng tối đa 200 thành phần, còn HSV dùng 32.
+KNN dùng `StandardScaler` và PCA, ngoại trừ các bộ đặc trưng có BoVW dùng chuẩn hóa vector và cosine distance. Gaussian Naive Bayes dùng `StandardScaler` không kèm PCA; Decision Tree dùng trực tiếp đặc trưng. PCA được giới hạn theo `min(200, số_mẫu_train - 1, số_đặc_trưng)` và fit bên trong từng fold.
 
-Tham số được chọn bằng Stratified 3-fold CV chỉ trên train với macro-F1. Mô hình cuối được chọn theo macro-F1 validation, fit lại trên train + validation, sau đó đánh giá một lần trên test.
+Tham số được chọn bằng Stratified 3-fold CV chỉ trên train với macro-F1. Mô hình cuối được chọn theo macro-F1 validation, fit lại trên train + validation, sau đó đánh giá trên test.
 
 ## 5. Kết quả validation
 
@@ -43,39 +45,51 @@ Macro-F1 validation là tiêu chí lựa chọn mô hình:
 | Đặc trưng | Thuật toán | Accuracy | Macro-F1 |
 |---|---|---:|---:|
 | HOG | KNN | 0.0422 | 0.0274 |
-| HOG | Naive Bayes | 0.0627 | 0.0483 |
-| HOG | Decision Tree | 0.0225 | 0.0224 |
-| HSV | KNN | 0.1902 | **0.1762** |
-| HSV | Naive Bayes | 0.1716 | 0.1666 |
-| HSV | Decision Tree | 0.1304 | 0.1261 |
+| HOG | Naive Bayes | 0.1098 | 0.1195 |
+| HOG | Decision Tree | 0.0196 | 0.0193 |
+| HSV | KNN | 0.1902 | 0.1762 |
+| HSV | Naive Bayes | 0.1686 | 0.1547 |
+| HSV | Decision Tree | 0.1176 | 0.1146 |
 | HOG+HSV | KNN | 0.0431 | 0.0276 |
-| HOG+HSV | Naive Bayes | 0.0686 | 0.0547 |
-| HOG+HSV | Decision Tree | 0.0618 | 0.0526 |
+| HOG+HSV | Naive Bayes | 0.1461 | 0.1619 |
+| HOG+HSV | Decision Tree | 0.0294 | 0.0271 |
+| HOG+HSV+LBP | KNN | 0.0422 | 0.0248 |
+| HOG+HSV+LBP | Naive Bayes | 0.1510 | 0.1697 |
+| HOG+HSV+LBP | Decision Tree | 0.0353 | 0.0335 |
+| BoVW | KNN | 0.0775 | 0.0709 |
+| BoVW | Naive Bayes | 0.0873 | 0.0864 |
+| BoVW | Decision Tree | 0.0225 | 0.0216 |
+| HSV+BoVW | KNN | 0.2265 | 0.2111 |
+| HSV+BoVW | Naive Bayes | 0.2353 | **0.2371** |
+| HSV+BoVW | Decision Tree | 0.0706 | 0.0668 |
+| HOG+HSV+LBP+BoVW | KNN | 0.0373 | 0.0245 |
+| HOG+HSV+LBP+BoVW | Naive Bayes | 0.1549 | 0.1741 |
+| HOG+HSV+LBP+BoVW | Decision Tree | 0.0412 | 0.0389 |
 
-Mô hình được chọn là **HSV + KNN**, với `n_neighbors=3` và `weights=distance`.
+Mô hình được chọn là **HSV+BoVW + Gaussian Naive Bayes**, với `var_smoothing=1e-9`. Macro-F1 validation là 0.2371, cao hơn 0.1762 của HSV+KNN trong lần chạy trước.
 
 ## 6. Kết quả test của mô hình được chọn
 
 | Chỉ số | Giá trị |
 |---|---:|
-| Accuracy | 0.2083 |
-| Precision macro | 0.1876 |
-| Recall macro | 0.2167 |
-| F1 macro | 0.1887 |
-| F1 weighted | 0.2045 |
-| Top-5 accuracy | 0.3220 |
+| Accuracy | 0.2734 |
+| Precision macro | 0.2615 |
+| Recall macro | 0.2841 |
+| F1 macro | 0.2518 |
+| F1 weighted | 0.2659 |
+| Top-5 accuracy | 0.5202 |
 
-Các giá trị này được đọc từ `outputs/experiments/final_test_metrics.json`. Bảng validation đầy đủ nằm ở `outputs/experiments/validation_comparison.csv`.
+Các giá trị trên được đọc từ `outputs/experiments/final_test_metrics.json`. Bảng validation đầy đủ nằm ở `outputs/experiments/validation_comparison.csv`.
 
 ## 7. Phân tích lỗi
 
-Theo `classification_report.csv`, các lớp có recall thấp nhất trong lần chạy này gồm mallow (0.000), hibiscus (0.018), sword lily (0.018), cyclamen (0.022) và sweet pea (0.028).
+Theo `classification_report.csv`, các lớp có recall thấp nhất là corn poppy (0.000), carnation (0.000), hibiscus (0.018), sword lily (0.027) và camellia (0.028).
 
-Một số nhầm lẫn có số lượng cao trong confusion matrix là passion flower → toad lily (16 ảnh), passion flower → bird of paradise (16), thorn apple → tree poppy (16), watercress → english marigold (15), và passion flower → wild pansy (14). Đây là thống kê của bộ test, không phải đánh giá nguyên nhân thị giác cho từng ảnh.
+Các nhầm lẫn nhiều nhất trong confusion matrix là wallflower → Californian poppy (35 ảnh), watercress → wallflower (31), bishop of llandaff → wallflower (27), watercress → marigold (22) và frangipani → windflower (19). Recall trên lớp rose là 0.2384; smoke test demo với ảnh test 1143 đã phân loại đúng thành rose. Đây là thống kê trên test, không phải giải thích thị giác cho mọi lỗi.
 
 ## 8. Hạn chế và kết luận
 
-Macro-F1 test 0.1887 cho thấy mô hình còn khó phân biệt 102 lớp. HSV + KNN là cấu hình tốt nhất trong các cấu hình đã thử, nhưng histogram màu bỏ qua bố cục và hình dạng; HOG hoặc đặc trưng kết hợp không cải thiện kết quả trong thực nghiệm này. Kết quả không nên được diễn giải như một hệ thống nhận diện có độ chính xác cao.
+Macro-F1 test 0.2518 tăng so với lượt HSV+KNN trước đó (0.1887), nhưng việc phân biệt 102 lớp vẫn khó. HSV+BoVW + Gaussian Naive Bayes được chọn chỉ theo macro-F1 validation; kết quả không nên được diễn giải như một hệ thống nhận diện có độ chính xác cao. SIFT BoVW và histogram màu vẫn chưa mô tả đầy đủ hình dáng hoa và ngữ cảnh.
 
 ## 9. Tái lập
 

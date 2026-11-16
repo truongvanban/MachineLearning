@@ -82,22 +82,25 @@ python src/train_models.py
 python src/app.py
 ```
 
-`train_models.py` chạy cross-validation cho 9 tổ hợp đặc trưng/thuật toán và có thể mất vài chục phút tùy cấu hình máy.
+`train_models.py` chạy cross-validation cho 21 tổ hợp bộ đặc trưng/thuật toán (7 bộ đặc trưng × 3 thuật toán). Huấn luyện có thể mất vài phút tùy cấu hình máy; terminal in tên mô hình và thời gian từng lượt CV.
 
 Giải thích:
 1. `eda.py`: kiểm tra số lượng ảnh, nhãn, split, ID trùng/lỗi và phân phối lớp.
-2. `extract_features.py`: resize ảnh 128×128, trích xuất HOG + histogram HSV và lưu các tập `X_*.npy`, `y_*.npy`.
-3. `train_models.py`: so sánh KNN, Gaussian Naive Bayes và Decision Tree trên HOG, HSV, HOG+HSV; chọn tham số bằng Stratified 3-fold CV trên train, chọn mô hình theo macro-F1 validation, fit lại trên train+validation và đánh giá test.
+2. `extract_features.py`: resize ảnh 128×128, trích xuất HOG, histogram HSV, LBP và SIFT Bag of Visual Words (BoVW); vocabulary BoVW được fit chỉ bằng descriptor của tập train. Lưu các tập `X_*.npy`, `y_*.npy` và tâm vocabulary.
+3. `train_models.py`: so sánh KNN, Gaussian Naive Bayes và Decision Tree trên HOG, HSV, HOG+HSV, HOG+HSV+LBP, BoVW, HSV+BoVW và HOG+HSV+LBP+BoVW; chọn tham số bằng Stratified 3-fold CV trên train, chọn mô hình theo macro-F1 validation, fit lại trên train+validation và đánh giá test.
 4. `app.py`: mở giao diện Gradio để tải ảnh và nhận diện.
 
 ## 5. Đặc trưng và mô hình
 
 - **HOG**: ảnh xám, 9 hướng gradient, cell 8×8, block 2×2.
 - **HSV**: histogram 16 bins cho H và 16 bins cho S, chuẩn hóa L1.
+- **LBP**: histogram mã uniform với 8 điểm lân cận, bán kính 1; tính riêng trên từng ô của lưới 2×2.
+- **SIFT BoVW**: SIFT tối đa 120 keypoint/ảnh, gom descriptor train thành vocabulary 64 từ; mỗi ảnh biểu diễn bằng histogram tần suất từ, chuẩn hóa L1.
+- **Tập đặc trưng**: HOG (8.100 chiều), HSV (32), LBP (40), BoVW (64), HSV+BoVW (96), HOG+HSV+LBP (8.172), HOG+HSV+LBP+BoVW (8.236).
 - **KNN**: thử số láng giềng và cách gán trọng số.
-- **Gaussian Naive Bayes**: điều chỉnh `var_smoothing`.
-- **Decision Tree**: so sánh tiêu chí chia nhánh, độ sâu và số mẫu lá tối thiểu.
-- **Scaling và PCA**: nằm trong pipeline của KNN và Naive Bayes để chỉ fit trên dữ liệu huấn luyện của từng fold; Decision Tree dùng trực tiếp đặc trưng.
+- **Gaussian Naive Bayes**: dùng `var_smoothing=1e-9` (đã là giá trị thắng CV trên 7 bộ đặc trưng).
+- **Decision Tree**: so sánh tiêu chí chia nhánh, độ sâu và số mẫu lá tối thiểu; dùng `max_features="sqrt"` để giảm thời gian trên vector HOG lớn.
+- **Tiền xử lý theo mô hình**: KNN dùng StandardScaler+PCA, ngoại trừ các tập có BoVW dùng chuẩn hóa vector và cosine distance. Gaussian Naive Bayes dùng StandardScaler, không PCA; Decision Tree dùng trực tiếp đặc trưng.
 - **Chọn mô hình**: dùng macro-F1 trên validation sau khi tìm tham số bằng Stratified 3-fold CV trên train. Test được giữ lại cho đánh giá cuối.
 
 Lưu ý: mỗi lớp có ít ảnh trong tập train chính thức. Đừng kỳ vọng đặc trưng thủ công sẽ đạt độ chính xác như mô hình học sâu.

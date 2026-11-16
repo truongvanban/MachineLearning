@@ -1,4 +1,4 @@
-# BÁO CÁO ĐỀ TÀI: PHÂN LOẠI 102 LOÀI HOA BẰNG ĐẶC TRƯNG HOG/HSV VÀ HỌC MÁY CỔ ĐIỂN
+# BÁO CÁO ĐỀ TÀI: PHÂN LOẠI 102 LOÀI HOA BẰNG ĐẶC TRƯNG THỦ CÔNG VÀ HỌC MÁY CỔ ĐIỂN
 
 > Đây là khung báo cáo có thể tái lập. Những vị trí ghi **[BỔ SUNG SAU KHI CHẠY]** phải được điền từ các tệp kết quả trong `outputs/`; không sử dụng số liệu minh họa như kết quả thật.
 
@@ -14,13 +14,15 @@ Oxford Flowers 102 gồm 8.189 ảnh thuộc 102 lớp. Theo split chính thức
 - Resize ảnh về 128 × 128 pixel.
 - HOG: ảnh xám, 9 hướng gradient, cell 8 × 8, block 2 × 2.
 - HSV: histogram 16 bins cho kênh H và 16 bins cho kênh S, chuẩn hóa L1.
-- So sánh ba tập đặc trưng: HOG, HSV và HOG kết hợp HSV.
-- Vector kết hợp hiện tại có 8.132 chiều (8.100 HOG + 32 histogram HSV).
+- LBP: histogram uniform với 8 điểm lân cận, bán kính 1; histogram riêng trên lưới 2 × 2 (40 chiều).
+- SIFT BoVW: tối đa 120 keypoint/ảnh; vocabulary 64 từ được fit trên descriptor từ tập train; histogram được chuẩn hóa L1.
+- So sánh bảy tập đặc trưng: HOG, HSV, HOG+HSV, HOG+HSV+LBP, BoVW, HSV+BoVW và HOG+HSV+LBP+BoVW.
+- Vector kết hợp đầy đủ có 8.236 chiều (8.100 HOG + 32 HSV + 40 LBP + 64 BoVW).
 
 ## 4. Mô hình và thiết kế thực nghiệm
 - Ba thuật toán được so sánh: KNN, Gaussian Naive Bayes và Decision Tree.
-- KNN tìm số láng giềng và trọng số; Naive Bayes tìm `var_smoothing`; Decision Tree tìm tiêu chí chia nhánh, độ sâu và số mẫu lá tối thiểu.
-- Chuẩn hóa và PCA được fit bên trong pipeline của KNN và Naive Bayes, không fit trên validation/test. Decision Tree dùng trực tiếp đặc trưng, không cần chuẩn hóa.
+- KNN tìm số láng giềng và trọng số; Gaussian Naive Bayes dùng `var_smoothing=1e-9`; Decision Tree tìm tiêu chí chia nhánh, độ sâu và số mẫu lá tối thiểu, với `max_features="sqrt"` để giảm thời gian trên vector HOG lớn.
+- KNN dùng StandardScaler+PCA, ngoại trừ các tập có BoVW dùng chuẩn hóa L1 và cosine distance. Gaussian Naive Bayes dùng StandardScaler, không PCA; Decision Tree dùng trực tiếp đặc trưng.
 - Dùng StratifiedKFold 3 folds trên train để chọn siêu tham số.
 - Validation macro-F1 dùng để chọn cấu hình. Sau khi chọn, mô hình được fit lại trên train + validation và đánh giá một lần trên test.
 
